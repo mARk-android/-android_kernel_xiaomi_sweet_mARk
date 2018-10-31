@@ -4899,7 +4899,6 @@ static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned int mA)
 		if (mA == 2)
 			return 0;
 		*/
-
 		if (!mA)
 			pval.intval = -ETIMEDOUT;
 		else
@@ -5349,6 +5348,7 @@ static struct platform_driver dwc3_msm_driver = {
 		.name	= "msm-dwc3",
 		.pm	= &dwc3_msm_dev_pm_ops,
 		.of_match_table	= of_dwc3_matach,
+		.probe_type = PROBE_FORCE_SYNCHRONOUS,
 	},
 };
 
