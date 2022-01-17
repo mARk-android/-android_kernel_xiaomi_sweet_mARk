@@ -81,7 +81,7 @@ static int SPIDEV_MAJOR;
 
 static DECLARE_BITMAP(minors, N_SPI_MINORS);
 static LIST_HEAD(device_list);
-static DEFINE_MUTEX(device_list_lock);
+static DEFINE_RT_MUTEX(device_list_lock);
 static struct wakeup_source fp_wakelock;
 static struct gf_dev gf;
 
@@ -582,7 +582,7 @@ static int gf_open(struct inode *inode, struct file *filp)
 	int status = -ENXIO;
 	int rc = 0;
 	int err = 0;
-	mutex_lock(&device_list_lock);
+	rt_mutex_lock(&device_list_lock);
 	list_for_each_entry(gf_dev, &device_list, device_entry) {
 		if (gf_dev->devt == inode->i_rdev) {
 			pr_debug("Found\n");
@@ -596,7 +596,7 @@ static int gf_open(struct inode *inode, struct file *filp)
 
 	if (gf_dev->vreg == NULL) {
 		dev_err(&gf_dev->spi->dev, "fp_vdd_vreg regulator get failed!\n");
-		mutex_unlock(&device_list_lock);
+		rt_mutex_unlock(&device_list_lock);
 		return -EPERM;
 	}
 
@@ -609,7 +609,7 @@ static int gf_open(struct inode *inode, struct file *filp)
 			dev_err(&gf_dev->spi->dev, "error enabling fp_vdd_vreg!\n");
 			regulator_put(gf_dev->vreg);
 			gf_dev->vreg = NULL;
-			mutex_unlock(&device_list_lock);
+			rt_mutex_unlock(&device_list_lock);
 			return -EPERM;
 		}
 	}
@@ -622,7 +622,7 @@ static int gf_open(struct inode *inode, struct file *filp)
 
 		if (rc) {
 			dev_err(&gf_dev->spi->dev, "Failed to request PWR GPIO. rc = %d\n", rc);
-			mutex_unlock(&device_list_lock);
+			rt_mutex_unlock(&device_list_lock);
 			err = -EPERM;
 			goto open_error1;
 		}
@@ -631,7 +631,7 @@ static int gf_open(struct inode *inode, struct file *filp)
 
 		if (rc) {
 			dev_err(&gf_dev->spi->dev, "Failed to request RESET GPIO. rc = %d\n", rc);
-			mutex_unlock(&device_list_lock);
+			rt_mutex_unlock(&device_list_lock);
 			err = -EPERM;
 			goto open_error1;
 		}
@@ -641,7 +641,7 @@ static int gf_open(struct inode *inode, struct file *filp)
 
 		if (rc) {
 			dev_err(&gf_dev->spi->dev, "Failed to request IRQ GPIO. rc = %d\n", rc);
-			mutex_unlock(&device_list_lock);
+			rt_mutex_unlock(&device_list_lock);
 			err = -EPERM;
 			goto open_error2;
 		}
@@ -668,7 +668,7 @@ static int gf_open(struct inode *inode, struct file *filp)
 		pr_debug("No device for minor %d\n", iminor(inode));
 	}
 
-	mutex_unlock(&device_list_lock);
+	rt_mutex_unlock(&device_list_lock);
 	return status;
 open_error3:
 	gpio_free(gf_dev->irq_gpio);
@@ -694,7 +694,7 @@ static int gf_release(struct inode *inode, struct file *filp)
 	struct gf_dev *gf_dev;
 	int status = 0;
 	pr_debug("%s\n", __func__);
-	mutex_lock(&device_list_lock);
+	rt_mutex_lock(&device_list_lock);
 	gf_dev = filp->private_data;
 	filp->private_data = NULL;
 	/*
@@ -724,7 +724,7 @@ static int gf_release(struct inode *inode, struct file *filp)
 		gpio_free(gf_dev->pwr_gpio);
 	}
 
-	mutex_unlock(&device_list_lock);
+	rt_mutex_unlock(&device_list_lock);
 	return status;
 }
 
@@ -850,7 +850,7 @@ static int gf_probe(struct platform_device *pdev)
 	/* If we can allocate a minor number, hook up this device.
 	 * Reusing minors is fine so long as udev or mdev is working.
 	 */
-	mutex_lock(&device_list_lock);
+	rt_mutex_lock(&device_list_lock);
 	minor = find_first_zero_bit(minors, N_SPI_MINORS);
 
 	if (minor < N_SPI_MINORS) {
@@ -862,7 +862,7 @@ static int gf_probe(struct platform_device *pdev)
 	} else {
 		dev_dbg(&gf_dev->spi->dev, "no minor number available!\n");
 		status = -ENODEV;
-		mutex_unlock(&device_list_lock);
+		rt_mutex_unlock(&device_list_lock);
 		goto error_hw;
 	}
 
@@ -873,7 +873,7 @@ static int gf_probe(struct platform_device *pdev)
 		gf_dev->devt = 0;
 	}
 
-	mutex_unlock(&device_list_lock);
+	rt_mutex_unlock(&device_list_lock);
 
 	if (status == 0) {
 		/*input device subsystem */
@@ -936,11 +936,11 @@ error_dev:
 
 	if (gf_dev->devt != 0) {
 		pr_debug("Err: status = %d\n", status);
-		mutex_lock(&device_list_lock);
+		rt_mutex_lock(&device_list_lock);
 		list_del(&gf_dev->device_entry);
 		device_destroy(gf_class, gf_dev->devt);
 		clear_bit(MINOR(gf_dev->devt), minors);
-		mutex_unlock(&device_list_lock);
+		rt_mutex_unlock(&device_list_lock);
 	}
 
 error_hw:
@@ -969,7 +969,7 @@ static int gf_remove(struct platform_device *pdev)
 
 	input_free_device(gf_dev->input);
 	/* prevent new opens */
-	mutex_lock(&device_list_lock);
+	rt_mutex_lock(&device_list_lock);
 	list_del(&gf_dev->device_entry);
 	device_destroy(gf_class, gf_dev->devt);
 	clear_bit(MINOR(gf_dev->devt), minors);
@@ -981,7 +981,7 @@ static int gf_remove(struct platform_device *pdev)
 #ifndef GOODIX_DRM_INTERFACE_WA
 	drm_unregister_client(&gf_dev->notifier);
 #endif
-	mutex_unlock(&device_list_lock);
+	rt_mutex_unlock(&device_list_lock);
 	return 0;
 }
 
