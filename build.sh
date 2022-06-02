@@ -25,13 +25,13 @@ export KBUILD_BUILD_USER="mARk"
 export KBUILD_BUILD_HOST="linux"
 
 #toolchain dir that you will be using to cross-compile the kernel
-TCDIR=$HOME/toolchain/clang15_20220517
+TCDIR=$HOME/toolchain/clang15_20220601
 
 #TCARM32=arm-eabi-gcc
 PRODUCT=sweet
 ANDROID=MiuiR
 PLATFORM=sdmmagpie
-CONFIG=sweet_user_defconfig
+CONFIG=vendor/sweet_defconfig
 BLD_DIR=_BUILD_KERNEL
 
 # select changelog or gitlog
