@@ -1837,7 +1837,7 @@ static ssize_t disksize_store(struct device *dev,
 		pr_info("Updated zram size to %liMB", (disksize/1048576));
 #else
 	/* Hardcoded smaller ZRAM size for low-memory machines (less than 4GB)*/
-	unsigned long megs = totalram_pages >> (20 - PAGE_SHIFT);
+	unsigned long megs = totalram_pages() >> (20 - PAGE_SHIFT);
 
 	if (megs < 5)
 		disksize = (u64)SZ_1G * 2;
